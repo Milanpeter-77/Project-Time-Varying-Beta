@@ -1,0 +1,257 @@
+%----------------------------------------------------------------------------------------
+%	FONTS
+%----------------------------------------------------------------------------------------
+
+\documentclass[10pt,parskip=half]{scrartcl}
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\usepackage{amsmath, amsfonts, amsthm} % Math packages
+\usepackage{listings} % Code listings, with syntax highlighting
+\usepackage[english]{babel} % English language hyphenation
+\usepackage{graphicx} % Required for inserting images
+\usepackage{booktabs} % Required for better horizontal rules in tables
+
+\usepackage{float}   % for [H]
+\usepackage{needspace} % to ensure enough room for heading+figure
+
+\numberwithin{equation}{section} % Number equations within sections
+\numberwithin{figure}{section}   % Number figures within sections
+\numberwithin{table}{section}    % Number tables within sections
+
+\setlength\parindent{0pt} % Removes all indentation from paragraphs
+
+\usepackage{enumitem} % Required for list customisation
+\setlist{noitemsep} % No spacing between list items
+
+\usepackage{hyperref} % For hyperlinks in the PDF
+
+%----------------------------------------------------------------------------------------
+%	DOCUMENT MARGINS
+%----------------------------------------------------------------------------------------
+
+\usepackage{geometry} % Required for adjusting page dimensions and margins
+
+\geometry{
+	paper=a4paper,
+	top=1.5cm,
+	bottom=2cm,
+	left=2cm,
+	right=2cm,
+	headheight=0.75cm,
+	footskip=1.5cm,
+	headsep=0.75cm,
+	%showframe,
+}
+
+%----------------------------------------------------------------------------------------
+%	SECTION TITLES (REPLACEMENT FOR sectsty)
+%----------------------------------------------------------------------------------------
+
+% --- SECTION ---
+\setkomafont{section}{\normalfont\large\bfseries}
+%\setcounter{secnumdepth}{0}
+\renewcommand*\sectionformat{} % hide number only in the section heading
+% --- SUBSECTION ---
+\setkomafont{subsection}{\normalfont\bfseries}
+% --- SUBSUBSECTION ---
+\setkomafont{subsubsection}{\normalfont\itshape}
+% --- PARAGRAPH ---
+\setkomafont{paragraph}{\normalfont\scshape}
+
+%----------------------------------------------------------------------------------------
+%	HEADERS AND FOOTERS
+%----------------------------------------------------------------------------------------
+
+\usepackage{scrlayer-scrpage} % Required for customising headers and footers
+
+\ohead*{} % Right header
+\ihead*{} % Left header
+\chead*{} % Centre header
+
+\ofoot*{} % Right footer
+\ifoot*{} % Left footer
+\cfoot*{\pagemark} % Centre footer
+
+%----------------------------------------------------------------------------------------
+%	TITLE SECTION
+%----------------------------------------------------------------------------------------
+
+\title{	
+	\normalfont\normalsize
+	\vspace{-15pt}
+	%\textsc{Vrije Universiteit Amsterdam - School of Business and Economics}\\
+	%\textsc{Econometrics for Quantitative Finance}\\
+	%\vspace{25pt} % Whitespace
+	%\rule{\linewidth}{0.5pt}\\ % Thin top horizontal rule
+	%\vspace{20pt} % Whitespace
+	{\huge Estimating Time-Varying Betas for Stock Returns}\\ % The assignment title
+	\vspace{10pt} % Whitespace
+	{\huge DCC-GARCH Method}\\ % The assignment title
+	%\vspace{12pt} % Whitespace
+	%\rule{\linewidth}{2pt}\\ % Thick bottom horizontal rule
+	\vspace{0pt} % Whitespace
+}
+
+\author{
+    \LARGE Milan Peter \\
+    \large September 2025 \\
+}
+
+\date{}
+
+\begin{document}
+
+\maketitle % Print the title
+\vspace{-3.5em}  % reduce vertical space between title and text
+
+%----------------------------------------------------------------------------------------
+%	INTRO
+%----------------------------------------------------------------------------------------
+\begin{quote}
+This report was created as a practical task related to the project ``Estimating Dynamic Exposures of Banks for Cyber Risks'' at Vrije Universiteit Amsterdam.
+My task was to take any publicly available daily factor and a small panel of stock returns or simulated data, and estimate the time-varying betas to the selected factor using a freely selected method.
+Finally, I was to include a figure with all beta estimates + 95\% CI.
+The report summarizes my approach, key findings, and any challenges.
+\end{quote}
+%----------------------------------------------------------------------------------------
+%	SECTION
+%----------------------------------------------------------------------------------------
+
+\section{Theoretical Background}
+\vspace{-1em}
+In a standard CAPM regression setting, a stock's excess return is modelled as
+
+\[
+r_{i,t} = \alpha_i + \beta_i f_t + \varepsilon_{i,t}, \tag{1}
+\]
+
+where the \(r_{i,t}\) is the return of stock \(i\) at time \(t\), \(f_t\) is the return of factors (e.g., market, SMB, or cyber-risk index in our case), and \(\beta_i\) is the exposure/sensitivity of stock \(i\) to factor \(f\).
+Usually, \(\beta_i\) is assumed constant over the sample.
+But exposures shift: banks may become more sensitive to cyber-risk factors after a major incident, then less sensitive later, for example. So, we allow \(\beta_{i,t}\) to change over time:
+
+\[
+r_{i,t} = \alpha_i + \beta_{i,t} f_t + \varepsilon_{i,t}, \tag{2}
+\]
+
+where \(\beta_{i,t}\) is the time-varying beta.
+
+There are several common approaches to estimate time-varying betas: rolling window OLS, DCC-GARCH and Kalman filter.
+In this short report, I will focus on DCC-GARCH (Dynamic Conditional Correlation - Generalized Autoregressive Conditional Heteroskedasticity) that models the time-varying covariance matrix of multiple return series.
+If we fit a multivariate DCC-GARCH on stock \(r_{i,t}\) and factor \(f_t\), we get conditional variance of factor: \(\operatorname{Var}_t(f)\), and conditional covariance between stock and factor: \(\operatorname{Cov}_t(r_i,f)\). Then
+
+\[
+\beta_{i,t} = \frac{\operatorname{Cov}_t(r_i,f)}{\operatorname{Var}_t(f)} \tag{3} \label{eq:time-varying-beta}
+\]
+
+So, the DCC model naturally produces dynamic betas.
+
+%-------------------------------------------
+
+\section{Data}
+\vspace{-1em}
+
+As for the factor, I use the market (MKT) factor from the Fama-French 3-Factor model.
+This is used as a proxy for the overall market return.
+Using a factor related to cyber-risk would be more relevant to the context of the project, but such data is not easy to obtain.
+Thus, I proceed with the market factor, which can be accessed through the \href{https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/f-f_factors.html}{Fama-French} website.
+As for the panel of stock, given the context of the project, I consider six banking stocks from the S\&P 500 index.
+The stock data is obtained using the WRDS database, specifically the \href{https://wrds-www.wharton.upenn.edu/pages/about/data-vendors/center-for-research-in-security-prices-crsp/\#products}{CRSP} dataset, as the university has a subscription to it.
+The data spans from June 30, 2015, to June 30, 2025, covering a period of roughly ten years.
+The stocks selected are: Citigroup (C), JPMorgan Chase (JPM), Bank of America (BAC), Wells Fargo (WFC), Goldman Sachs (GS).
+The factor used is: market factor \(R_m - R_f\) (denoted as MKT).
+
+The data files are included in the repository as \texttt{data\_ff3.csv} and \texttt{data\_prices.csv}.
+After importing the data, I calculate the daily returns for each stock and merge the stock returns with the factor data into a single panel DataFrame.
+The returns are multiplied by 100 to express them in percentage terms, and to ensure consistency with the factor returns, which are also in percentage terms.
+The resulting DataFrame has a multi-index with dates and stock tickers, and columns for stock returns and factor returns.
+
+%-------------------------------------------
+
+\section{Estimation}
+\vspace{-1em}
+
+I start with defining the parameters.
+I work with an estimation window of 252 trading days (approximately one year), and confidence intervals are computed at the 95\% level, as requested.
+To estimate the time-varying betas, I loop over each stock in the panel.
+For each stock, I extract its returns and the factor returns, and fit a GARCH(1,1) model using the \texttt{arch} library.
+The GARCH model captures the dynamic correlations between the stock and the factor over time.
+After fitting the model, I extract the conditional covariance between the stock and the factor, as well as the conditional variance of the factor.
+Using Equation \ref{eq:time-varying-beta}, I compute the time-varying beta for each stock.
+I use the standard errors from the GARCH model to compute the 95\% confidence intervals for the betas.
+For comparison, I also compute the OLS beta using the same returns using the \texttt{statsmodels} library.
+As a final step, I store the results in a dictionary for later use.
+
+%-------------------------------------------
+
+\section{Results}
+\vspace{-1em}
+
+The results in Table \ref{tab:comparison-table} and Figure \ref{fig:time-varying-betas} highlight clear evidence that the systematic risk exposures of large U.S. banks fluctuate considerably over time.
+The constant-beta estimates from the standard OLS CAPM regression give a baseline of each firm's average sensitivity to market returns.
+However, the DCC-GARCH results reveal that these exposures are far from constant.
+
+Across all six institutions, the mean of the time-varying betas exceeds the static OLS beta, suggesting that the traditional constant-beta model slightly underestimates the degree of market sensitivity once time variation is accounted for.
+For example, Citigroup (C) shows an OLS beta of 1.29, while its average dynamic beta is 1.35, with a standard deviation of 0.47 – indicating frequent and large deviations from the long-term mean.
+
+The range column in Table \ref{tab:comparison-table} shows substantial variation in market exposure across time.
+Citigroup (C) and Bank of New York Mellon (BK) have the widest ranges, suggesting that their sensitivity to market risk occasionally tripled during volatile periods.
+These peaks align with systemic stress episodes such as the 2020 pandemic and the 2022 inflation shocks.
+
+Figure \ref{fig:time-varying-betas} confirms these dynamics: betas rise sharply during crises and settle afterward, while confidence intervals widen when volatility increases.
+Goldman Sachs (GS) and Bank of America (BAC) display comparatively stable betas post-2021, whereas Citigroup (C) and Wells Fargo (WFC) fluctuate more strongly.
+JPMorgan Chase (JPM) shows the most stable pattern, reflecting steadier market exposure.
+
+\begin{table}[htbp]
+\centering
+\caption{Comparison of Beta Estimates across Firms}
+\label{tab:comparison-table}
+\makebox[\textwidth]{
+  \input{output/comparison_table.tex}
+}
+\end{table}
+
+From a methodological standpoint, the results confirm that the DCC-GARCH framework is capable of revealing both firm-specific and system-wide risk dynamics hidden in constant-parameter models.
+The time-varying betas can serve as inputs for further analysis – such as stress testing, portfolio allocation, or risk management applications – by reflecting the evolving co-movement between bank stocks and the market factor.
+
+Future work could extend this analysis by introducing additional factors (e.g. a sophisticated cyber-risk index) or by benchmarking the DCC-GARCH results against alternative time-variation estimators like the Kalman filter.
+Such comparison would clarify whether observed fluctuations stem from genuine economic shifts or model-driven volatility in the conditional correlations.
+
+%----------------------------------------------------------------------------------------
+%	REFERENCES
+%----------------------------------------------------------------------------------------
+
+\begin{thebibliography}{9}
+
+\bibitem{fama1993}
+Fama, E. F. and K. R. French (1993). Common Risk Factors in the Returns on Stocks and Bonds. \textit{Journal of Financial Economics} 33.1, pp. 3–56.
+
+\bibitem{engle2002}
+Engle, R. (2002). Dynamic Conditional Correlation: A Simple Class of Multivariate GARCH Models. \textit{Journal of Business \& Economic Statistics} 20.3, pp. 339–350.
+
+\end{thebibliography}
+
+%----------------------------------------------------------------------------------------
+%	APPENDIX
+%----------------------------------------------------------------------------------------
+
+\clearpage
+
+\setcounter{section}{0}
+\renewcommand\thesection{\alph{section}}
+\section{Appendix}
+
+\begin{figure}[H]
+    \centering
+    \caption{Time-Varying Factor Betas for Banking Stocks}
+    \includegraphics[width=\textwidth]{output/time_varying_betas.png}
+    \label{fig:time-varying-betas}
+\end{figure}
+
+%----------------------------------------------------------------------------------------
+%	END OF DOCUMENT
+%----------------------------------------------------------------------------------------
+
+\end{document}
